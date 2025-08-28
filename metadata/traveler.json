@@ -1,0 +1,10 @@
+{
+  "name": "TRAVELER Soul Badge",
+  "description": "A soulbound NFT earned by defeating the TRAVELER rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreigyjhi6jb4tb7gwfzfol7xtgmgfahprkouzpfyfhc23b4ublmlm3i",
+  "attributes": [
+    { "trait_type": "Level", "value": "3" },
+    { "trait_type": "Color", "value": "#f5a623" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}

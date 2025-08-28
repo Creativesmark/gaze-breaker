@@ -1,0 +1,10 @@
+{
+  "name": "WANDERER Soul Badge",
+  "description": "A soulbound NFT earned by defeating the WANDERER rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreihbxllhzlsv75oqin5dyvzfszix26m46rvn2oo7naxevhrjdadtxa",
+  "attributes": [
+    { "trait_type": "Level", "value": "2" },
+    { "trait_type": "Color", "value": "#4a90e2" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}

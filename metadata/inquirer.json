@@ -1,0 +1,10 @@
+{
+  "name": "INQUIRER Soul Badge",
+  "description": "A soulbound NFT earned by defeating the INQUIRER rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreibc6v4qf5sgyhaqtl5xmtsyhrgce5fw4enj7jydlykiu3ecdr7p5i",
+  "attributes": [
+    { "trait_type": "Level", "value": "1" },
+    { "trait_type": "Color", "value": "#aaaaaa" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}

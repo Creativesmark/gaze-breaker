@@ -1,0 +1,10 @@
+{
+  "name": "ILLUMINATED Soul Badge",
+  "description": "A soulbound NFT earned by defeating the ILLUMINATED rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreiabmduw7y6qmg2c5ltud4sdlwrlnjbqonbqmzcaqb42vjlbqriqkm",
+  "attributes": [
+    { "trait_type": "Level", "value": "6" },
+    { "trait_type": "Color", "value": "#00ff00" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}

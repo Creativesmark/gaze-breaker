@@ -1,0 +1,10 @@
+{
+  "name": "ENCHANTER Soul Badge",
+  "description": "A soulbound NFT earned by defeating the ENCHANTER rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreiaxebe3flauj2tmqc26kfklnaqsxkoroyxjy2ktgtc3wbioxc5u54",
+  "attributes": [
+    { "trait_type": "Level", "value": "5" },
+    { "trait_type": "Color", "value": "#d0021b" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}

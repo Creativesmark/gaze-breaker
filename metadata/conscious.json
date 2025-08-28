@@ -1,0 +1,10 @@
+{
+  "name": "CONSCIOUS Soul Badge",
+  "description": "A soulbound NFT earned by defeating the CONSCIOUS rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreifadfigakb6ibxmy5btc5eaq3ynpfmska2wg3btrauwfmxtgkvkae",
+  "attributes": [
+    { "trait_type": "Level", "value": "7" },
+    { "trait_type": "Color", "value": "#ffffff" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}

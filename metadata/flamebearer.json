@@ -1,0 +1,10 @@
+{
+  "name": "FLAMEBEARER Soul Badge",
+  "description": "A soulbound NFT earned by defeating the FLAMEBEARER rank in Gaze Breaker.",
+  "image": "https://ipfs.io/ipfs/bafkreicbyl5tj7fx73o77lwuredghf27vgq7wfvcr3epxtckbnp2b6fjxi",
+  "attributes": [
+    { "trait_type": "Level", "value": "8" },
+    { "trait_type": "Color", "value": "#ff4d5a" },
+    { "trait_type": "Icon", "value": "Eye" }
+  ]
+}
