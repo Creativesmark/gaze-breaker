@@ -247,7 +247,6 @@
 
   <!-- Ethers v5 -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-  <script src="https://cdn.ethers.io/lib/ethers-5.7.2.min.js"></script>
 
   <!-- script type="module"-->
   <script type="module">
@@ -381,30 +380,7 @@
     provider = new window.ethers.providers.Web3Provider(window.ethereum);
     signer = provider.getSigner();
 
-    // Update UI
-    if (walletEl) {
-      walletEl.textContent = `${userAddress.slice(0, 6)}…${userAddress.slice(-4)}`;
-      walletEl.title = userAddress;
-    }
-    if (connectBtnSplash) {
-      connectBtnSplash.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-    }
-    if (connectBtnHud) {
-      connectBtnHud.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-    }
-
-    console.log("Wallet connected:", userAddress);
-  } catch (error) {
-    console.error("Wallet connection failed:", error);
-    alert("Wallet connection failed: " + error.message);
-  } finally {
-    // Unlock UI
-    if (connectBtnSplash) connectBtnSplash.disabled = false;
-    if (connectBtnHud) connectBtnHud.disabled = false;
-  }
-}
-
-    // get current network
+    // NOW: Get current network (after provider is set)
     const net = await provider.getNetwork();
     console.log('Connected wallet address:', userAddress, 'chainId:', net.chainId);
 
@@ -445,10 +421,42 @@
       }
     }
 
-  } catch (err) {
-    console.error('Wallet connection failed:', err);
-    alert('Wallet connection failed: ' + (err?.message || err));
+    // NEW: Add event listeners for account and network changes
+    window.ethereum.on('accountsChanged', (accounts) => {
+      userAddress = accounts[0] || null;
+      const shortAddr = userAddress ? `${userAddress.slice(0,6)}…${userAddress.slice(-4)}` : 'Not connected';
+      if (walletEl) walletEl.textContent = shortAddr;
+      if (connectBtnSplash) connectBtnSplash.textContent = userAddress ? `Connected: ${shortAddr}` : '🔗 Connect';
+      if (connectBtnHud) connectBtnHud.textContent = userAddress ? `Connected: ${shortAddr}` : '🔗 Connect';
+    });
+    window.ethereum.on('chainChanged', async () => {
+      if (provider) {
+        const net = await provider.getNetwork();
+        if (INTUITION_CHAIN.chainId && net.chainId !== INTUITION_CHAIN.chainId) {
+          // Re-trigger switch logic here if needed
+          alert('Network changed! Please switch back to Intuition Testnet.');
+        }
+      }
+    });
+
+    // Update UI
+    if (walletEl) {
+      walletEl.textContent = `${userAddress.slice(0, 6)}…${userAddress.slice(-4)}`;
+      walletEl.title = userAddress;
+    }
+    if (connectBtnSplash) {
+      connectBtnSplash.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+    }
+    if (connectBtnHud) {
+      connectBtnHud.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+    }
+
+    console.log("Wallet connected:", userAddress);
+  } catch (error) {
+    console.error("Wallet connection failed:", error);
+    alert("Wallet connection failed: " + error.message);
   } finally {
+    // Unlock UI
     if (connectBtnSplash) connectBtnSplash.disabled = false;
     if (connectBtnHud) connectBtnHud.disabled = false;
   }
@@ -460,23 +468,44 @@
   }
 
   async function mintSoulBadge(level) {
-    if (!signer) { alert('Please connect your wallet first.'); return; }
-    try {
-      const nft = new windows.ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-      const tx = await nft.mintLevel(userAddress, level);
-      showMintHint('Waiting for confirmation…');
-      await tx.wait();
-      showMintHint('✅ Minted! Check explorer.');
-      saveProgress(level);
-    } catch (err) {
-      showMintHint('❌ Mint failed: '+(err?.shortMessage || err?.message || err));
+  console.log("mintSoulBadge called for level", level);
+  if (!signer || !userAddress) {
+    console.error("Wallet not connected for minting.");
+    alert("Please connect your wallet first.");
+    return;
+  }
+  try {
+    // Check network
+    const net = await provider.getNetwork();
+    if (net.chainId !== INTUITION_CHAIN.chainId) {
+      console.error("Wrong network for minting. Expected chainId:", INTUITION_CHAIN.chainId, "Got:", net.chainId);
+      alert("Please switch to Intuition Epoch Testnet (Chain ID 5312) to mint.");
+      return;
     }
+
+    const nft = new window.ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+    const tx = await nft.mintLevel(userAddress, level, { gasLimit: 200000 }); // Added gasLimit
+    console.log("Mint transaction sent:", tx.hash); // Added for debugging
+    showMintHint("Waiting for confirmation…");
+    await tx.wait();
+    showMintHint("✅ Minted! Check explorer.");
+    saveProgress(level);
+  } catch (error) {
+    console.error("Minting failed:", error);
+    showMintHint("❌ Mint failed: " + (error?.shortMessage || error?.message || error));
   }
-  function showMintHint(text) {
-    const el = document.getElementById('mintHint');
+}
+
+function showMintHint(text) {
+  console.log("showMintHint:", text);
+  const el = document.getElementById('mintHint');
+  if (el) {
     el.textContent = text;
-    el.style.display='block';
+    el.style.display = 'block';
+  } else {
+    console.error("mintHint element not found");
   }
+}
 
   // --- Canvas & responsive ---
   const canvas = document.getElementById('game');
