@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <title>Gaze Breaker 👁️</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
   <style>
     /* 🎮 existing CSS (keep it) */
     body {
@@ -246,13 +247,13 @@
 
   <!-- Ethers v5 -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-  <script>
-    if (window.ethers) {
-      console.log("ethers version:", ethers.version); // should show 5.7.x
-    }
-  </script>
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.2.min.js"></script>
 
+  <!-- script type="module"-->
   <script type="module">
+  // here ethers is already loaded
+  // provider = new window.ethers.providers.Web3Provider(window.ethereum);
+
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
   const SUPABASE_URL = "https://kpqdyiquvljzctlmfflv.supabase.co";    // 🔑 from Supabase
@@ -346,35 +347,62 @@
   const $walletShort = document.getElementById('walletShort');
 
   async function connectWallet() {
-  const connectBtnSplash = document.getElementById('connect');   // splash connect
-  const connectBtnHud = document.getElementById('btnConnect');   // hud connect
+  console.log("connectWallet called"); // Debug
+  const connectBtnSplash = document.getElementById('connect');
+  const connectBtnHud = document.getElementById('btnConnect');
   const walletEl = document.getElementById('walletShort');
 
-  // lock UI so user can't double-click
+  // Lock UI to prevent double-click
   if (connectBtnSplash) connectBtnSplash.disabled = true;
   if (connectBtnHud) connectBtnHud.disabled = true;
 
   try {
+    // Check for wallet provider
     if (!window.ethereum) {
-      alert('MetaMask (or another injected wallet) not found. Use a wallet-enabled browser or install MetaMask.');
+      console.error("No wallet provider detected.");
+      alert("Please install a compatible wallet (e.g., MetaMask, Coinbase Wallet) to connect.");
       return;
     }
 
-    console.log('Requesting accounts from wallet...');
+    // Check for ethers.js
+    if (!window.ethers) {
+      console.error("ethers.js not loaded.");
+      alert("Wallet connection error: ethers.js library not found. Please try again later.");
+      return;
+    }
+
+    console.log("Requesting accounts from wallet...");
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (!accounts || accounts.length === 0) throw new Error('No accounts returned by wallet.');
+    if (!accounts || accounts.length === 0) {
+      throw new Error("No accounts returned by wallet.");
+    }
 
     userAddress = accounts[0];
-
-    // ethers v5 provider
-    provider = new ethers.providers.Web3Provider(window.ethereum);
+    provider = new window.ethers.providers.Web3Provider(window.ethereum);
     signer = provider.getSigner();
 
-    // update UI safely
+    // Update UI
     if (walletEl) {
-      walletEl.textContent = `${userAddress.slice(0,6)}…${userAddress.slice(-4)}`;
+      walletEl.textContent = `${userAddress.slice(0, 6)}…${userAddress.slice(-4)}`;
       walletEl.title = userAddress;
     }
+    if (connectBtnSplash) {
+      connectBtnSplash.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+    }
+    if (connectBtnHud) {
+      connectBtnHud.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+    }
+
+    console.log("Wallet connected:", userAddress);
+  } catch (error) {
+    console.error("Wallet connection failed:", error);
+    alert("Wallet connection failed: " + error.message);
+  } finally {
+    // Unlock UI
+    if (connectBtnSplash) connectBtnSplash.disabled = false;
+    if (connectBtnHud) connectBtnHud.disabled = false;
+  }
+}
 
     // get current network
     const net = await provider.getNetwork();
@@ -434,7 +462,7 @@
   async function mintSoulBadge(level) {
     if (!signer) { alert('Please connect your wallet first.'); return; }
     try {
-      const nft = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+      const nft = new windows.ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
       const tx = await nft.mintLevel(userAddress, level);
       showMintHint('Waiting for confirmation…');
       await tx.wait();
@@ -1157,37 +1185,43 @@
     AudioManager.play('ingame', true);
   }
 
-  // Bind UI events
-  startButton.onclick = startGame;
-  document.getElementById('connect').onclick = connectWallet;
-  document.getElementById('btnConnect').onclick = connectWallet;
-  document.getElementById('how').onclick = ()=> document.getElementById('howModal').classList.add('show');
-  document.getElementById('btnHow').onclick = ()=> document.getElementById('howModal').classList.add('show');
-  document.getElementById('closeHow').onclick = ()=> document.getElementById('howModal').classList.remove('show');
-  document.getElementById('btnLeaderboard').onclick = () => {
-    const leaderModal = document.getElementById('leader');
-    leaderModal.style.display = leaderModal.style.display === 'flex' ? 'none' : 'flex';
-  };
-  document.getElementById('leaderboard').onclick = () => {
-    document.getElementById('leader').style.display = 'flex';
-  };
-  document.getElementById('closeLeader').onclick = () => {
-    document.getElementById('leader').style.display = 'none';
-  };
-  document.getElementById('downloadLore').onclick = () => {
-    const loreText = document.getElementById('loreText').textContent;
-    downloadLoreCard(loreText);
-  };
-  document.getElementById('shareLore').onclick = () => {
-    const loreText = document.getElementById('loreText').textContent;
-    shareLoreCard(loreText);
-  };
-  document.getElementById('lore').onclick = generateLore;
-  document.getElementById('closeLore').onclick = ()=> document.getElementById('loreModal').classList.remove('show');
-  document.getElementById('btnMute').onclick = () => {
-    AudioManager.toggleMute();
-    document.getElementById('btnMute').textContent = AudioManager.muted ? '🔊' : '🔇';
-  };
+  // Make sure DOM is ready before binding buttons
+  window.addEventListener("DOMContentLoaded", () => {
+    console.log("✅ DOM ready, binding buttons...");
+
+    // Bind UI events
+    startButton.onclick = startGame;
+    document.getElementById('connect').onclick = connectWallet;
+    document.getElementById('btnConnect').onclick = connectWallet;
+    document.getElementById('how').onclick = ()=> document.getElementById('howModal').classList.add('show');
+    document.getElementById('btnHow').onclick = ()=> document.getElementById('howModal').classList.add('show');
+    document.getElementById('closeHow').onclick = ()=> document.getElementById('howModal').classList.remove('show');
+    document.getElementById('btnLeaderboard').onclick = () => {
+      const leaderModal = document.getElementById('leader');
+      leaderModal.style.display = leaderModal.style.display === 'flex' ? 'none' : 'flex';
+    };
+    document.getElementById('leaderboard').onclick = () => {
+      document.getElementById('leader').style.display = 'flex';
+    };
+    document.getElementById('closeLeader').onclick = () => {
+      document.getElementById('leader').style.display = 'none';
+    };
+    document.getElementById('downloadLore').onclick = () => {
+      const loreText = document.getElementById('loreText').textContent;
+      downloadLoreCard(loreText);
+    };
+    document.getElementById('shareLore').onclick = () => {
+      const loreText = document.getElementById('loreText').textContent;
+      shareLoreCard(loreText);
+    };
+    document.getElementById('lore').onclick = generateLore;
+    document.getElementById('closeLore').onclick = ()=> document.getElementById('loreModal').classList.remove('show');
+    document.getElementById('btnMute').onclick = () => {
+      AudioManager.toggleMute();
+      document.getElementById('btnMute').textContent = AudioManager.muted ? '🔊' : '🔇';
+    };
+    console.log("✅ All UI buttons bound after DOM is ready.");
+  });
 
   async function generateLore() {
     const loreModal = document.getElementById('loreModal');
