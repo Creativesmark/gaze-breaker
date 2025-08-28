@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <title>Gaze Breaker 👁️</title>
+  <style>
+    /* 🎮 existing CSS (keep it) */
+    body {
+      margin: 0;
+      background: black;             /* black bars when aspect doesn’t match */
+      display: flex;
+      justify-content: center;       /* center canvas horizontally */
+      align-items: center;           /* center canvas vertically */
+      height: 100vh;                 /* full viewport height */
+      overflow: hidden;
+      font-family: monospace;        /* keep your font */
+    }
+
+    canvas {
+      display: block;
+      background: #000;              /* fallback inside canvas */
+    }
+
+    :root {
+      --bg:#07090c; --fg:#e6e6e6; --muted:#9aa0a6; --accent:#8af; --danger:#ff4d5a; --success:#86efac;
+    }
+    html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif; }
+    .wrap { position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr; }
+
+    /* HUD */
+    .hud { position:absolute; left:0; right:0; top:0; display:none; gap:.75rem; align-items:center; padding:.5rem .75rem; pointer-events:none; }
+    .pill { background:#0e1218cc; border:1px solid #283040; border-radius:999px; padding:.3rem .6rem; display:flex; align-items:center; gap:.4rem; font-size:.9rem; backdrop-filter: blur(6px); }
+    .bar { position:relative; width:160px; height:8px; background:#1a2130; border-radius:999px; overflow:hidden; }
+    .bar > i { position:absolute; inset:0; width:50%; height:100%; background:linear-gradient(90deg,#5ad,#9df); }
+
+    canvas { position:absolute; inset:0; touch-action:none; width:100%; height:100%; z-index: 0;}
+
+    /* Splash / overlays */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: url('splash-bg.png') no-repeat center center/cover;
+      background-color: radial-gradient(120vmax 120vmax at 50% 0%, #0b0f15 0%, #07090c 60% 100%);
+      z-index: 3;
+    }
+    .card { width:min(720px,92vw); border:1px solid #2a3242; border-radius:24px; padding:24px; background:linear-gradient(180deg, #0b0f15cc, #0a0d13cc); box-shadow:0 20px 100px #000 inset, 0 12px 40px #0008; }
+    .title { font-size:clamp(28px,5vw,48px); line-height:1.05; margin:0 0 .25rem; }
+    .subtitle { opacity:.85; margin:0 0 1rem; }
+    .btnrow { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+    button { cursor:pointer; background:#0e1420; border:1px solid #2a3242; color:var(--fg); padding:.7rem 1.1rem; border-radius:14px; transition:.2s transform,.2s background,.2s border; font-size:1rem; }
+    button:hover { transform:translateY(-2px); border-color:#3a445a; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .primary { background:linear-gradient(180deg,#24324a,#1d2a40); border-color:#3a4a68; }
+    .accent { background:#0f172a; border-color:#4b5e86; }
+    .danger { background:#25141a; border-color:#6b2a38; }
+    .ghost { background:#0a0d13; border-color:#2a3242; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:#000a; padding:20px; z-index:4; }
+    .modal.show { display:flex; }
+    .modal .card { max-height:80vh; overflow:auto; }
+    .howto li { margin:.4rem 0; }
+
+    .centerText { position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; z-index:2; }
+    .centerText.show { display:flex; }
+    .bigMessage { font-size: clamp(24px,4.5vw,42px); text-shadow: 0 2px 18px #000; }
+    .countdown { font-size: clamp(20px,4vw,36px); opacity:.9; margin-top:.5rem; }
+
+    .leader { position:absolute; right:10px; top:10px; width:min(320px,92vw); max-height:80vh; overflow:auto; background:#090c12e6; border:1px solid #283040; border-radius:16px; padding:10px; display:none; z-index:1; }
+    .leader.show { display:block; }
+    .leader h3{ margin:0 0 .5rem; }
+    .leader table { width:100%; border-collapse:collapse; font-size:.9rem; }
+    .leader td, .leader th { border-bottom:1px solid #1a2230; padding:.35rem .3rem; text-align:left; }
+    .leader td:nth-child(2){ text-align:right; }
+
+    #loreCard {
+      width: 320px;
+      padding: 20px;
+      background: linear-gradient(180deg, #0b0f15cc, #0a0d13cc);
+      border: 1px solid #2a3242;
+      border-radius: 16px;
+      color: var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+      text-align: left;
+      display: none;
+    }
+    #loreCard h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+    #loreCard p {
+      margin: 0 0 0.5rem;
+    }
+    #loreCard .footer {
+      font-size: 0.8rem;
+      opacity: 0.8;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    .cloaks { position:absolute; inset:0; pointer-events:none; background:
+      radial-gradient(200px 340px at 15% 90%, #10151ee6, transparent 70%),
+      radial-gradient(180px 320px at 50% 95%, #0f1420e6, transparent 70%),
+      radial-gradient(200px 340px at 85% 92%, #10151ee6, transparent 70%);
+      mix-blend-mode: screen; opacity:.25; filter: blur(2px);
+    }
+
+    .net { position:absolute; right:10px; bottom:10px; opacity:.8; display:flex; gap:.5rem; align-items:center; }
+    .net small { color: var(--muted); }
+
+    a.link { color:#9fd; text-decoration:none; border-bottom:1px dashed #467; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game"></canvas>
+    <div class="cloaks" aria-hidden></div>
+
+    <!-- HUD -->
+    <div class="hud" id="hud" style="display:none">
+      <div class="pill" id="scorePill">Score: <b class="mono" id="score">0</b></div>
+      <div class="pill">Level: <b class="mono" id="level">1</b> <span id="rankLabel" class="mono" style="opacity:.85;margin-left:.35rem"></span></div>
+      <div class="pill">Ammo
+        <span class="bar"><i id="ammoBar" style="width:100%"></i></span>
+        <b class="mono" id="ammoText">300/300</b>
+      </div>
+      <div class="pill" id="shieldPill" style="display:none">Shield: <b class="mono" id="shieldTime">15s</b></div>
+      <div class="pill" id="livesPill"><span>Lives:</span> <b class="mono" id="livesText">2</b></div> <!-- NEW -->
+      <div class="pill">Boss HP
+        <span class="bar" style="width:200px"><i id="bossBar" style="width:0%"></i></span>
+        <b class="mono" id="bossHp">0/0</b>
+      </div>
+      <div class="pill" style="margin-left:auto; pointer-events:auto">
+        <button class="ghost" id="btnLeaderboard" title="Toggle leaderboard">🏆</button>
+        <button class="ghost" id="btnHow">❓ How to play</button>
+        <button class="accent" id="btnConnect">🔗 Connect</button>
+      </div>
+      <!-- Wallet short display -->
+      <div class="pill" id="walletPill" style="pointer-events:auto; margin-left:.5rem;">
+        <span id="walletShort" class="mono" style="opacity:.9; font-size:.85rem;">Not connected</span>
+      </div>
+      <div class="pill" style="pointer-events:auto">
+        <button class="ghost" id="btnMute">🔇</button>
+      </div>
+    </div>
+
+    <!-- Center messages -->
+    <div class="centerText" id="center">
+      <div>
+        <div class="bigMessage" id="bigMessage"></div>
+        <div class="countdown" id="countdown"></div>
+        <div style="margin-top:1rem; display:none" id="mintRow">
+          <button class="primary" id="btnMint">🪙 Mint Soul Badge</button>
+          <small id="mintHint" style="display:block; opacity:.7; margin-top:.4rem">You’ll be asked to confirm in your wallet.</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Splash -->
+    <div class="screen" id="splash">
+      <div class="card">
+        <h1 class="title">Gaze Breaker 👁️</h1>
+        <p class="subtitle">Defeat the eyes of the institution.</p>
+        <p style="opacity:.9">An eerie, sci-fi shmup. Clear 8 ranks, slay bosses, and mint <b>👁️ Soul Badges</b> on Intuition’s Epoch testnet after each victory.</p>
+        <div id="progressText" style="margin-bottom:1rem; font-size:0.9rem; opacity:0.8; font-style:italic;"></div>
+        <div class="btnrow">
+          <button class="primary" id="start">▶️ START GAME</button>
+          <button class="ghost" id="how">📜 How to play</button>
+          <button class="ghost" id="lore">✨ Generate Lore</button>
+          <button class="ghost" id="leaderboard">🏆 Leaderboard</button>
+          <button class="accent" id="connect">🔗 Connect Wallet</button>
+        </div>
+        <div style="margin-top:1rem; font-size:.9rem; opacity:.8">
+          Built for mobile + desktop. Drag to move, auto-fires. Ammo is limited to 300 shots; collect ⚔️ to refill. Bosses fight back.
+        </div>
+        <div style="margin-top:1rem; font-size:.9rem; opacity:.8">
+          Created by <a href="https://x.com/i2playy" target="_blank">@i2playy</a> | Powered by <a href="https://x.com/0xIntuition" target="_blank">@0xIntuition</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- How to play modal -->
+    <div class="modal" id="howModal" aria-modal="true" role="dialog">
+      <div class="card">
+        <h2 style="margin-top:0">How to Play & Mint NFTs</h2>
+        <p>Gaze Breaker 👁️ is a sci-fi shooter where you battle the eyes of the Institution across 8 ranks. Defeat minions, slay bosses, and mint soulbound NFTs.</p>
+        <h3>Gameplay</h3>
+        <ol class="howto">
+          <li><b>Move:</b> Drag your finger (mobile) or hold mouse + drag / use arrow keys (PC).</li>
+          <li><b>Auto-fire:</b> Your ship fires light bolts automatically. Ammo is limited to 300 shots.</li>
+          <li><b>Ammo Refill:</b> Collect <b>⚔️</b> drops to restore full ammo. Minions drop swords every 10 kills; bosses drop swords every 150 damage dealt.</li>
+          <li><b>Shield:</b> Collect <b>🛡️</b> drops for 15s protection from enemy fire and collisions. Drops less often than ammo but more frequently at higher levels.</li>
+          <li><b>Ranks:</b> Progress through 8 ranks: Inquire 👁️, Wanderer 👁️, Traveler 👁️, Disciple 👁️, Enchanter 👁️, Illuminated 👁️, Conscious 👁️, Flamebearer 👁️.</li>
+          <li><b>Boss Fights:</b> After clearing minions, face a powerful boss that shoots back. Dodge projectiles and deal damage to win.</li>
+          <li><b>Win a Rank:</b> Defeat the boss to see “<i>[Rank] Completed! Advancing to [Next Rank]…</i>” with a 5-second countdown.</li>
+        </ol>
+        <h3>Minting NFTs</h3>
+        <p>After defeating a boss, mint a <b>👁️ Soul Badge</b> NFT on the Intuition Epoch Testnet:</p>
+        <ol class="howto">
+          <li><b>Connect Wallet:</b> Use MetaMask (mobile or browser). Click “Connect Wallet” to link your wallet.</li>
+          <li><b>Network:</b> Ensure MetaMask is set to Intuition Epoch Testnet (Chain ID: 5312, RPC: <a class="link" href="https://testnet.rpc.intuition.systems/http">testnet.rpc.intuition.systems</a>). Add it manually if needed.</li>
+          <li><b>Mint:</b> After a boss fight, click “Mint Soul Badge” to call the ERC-721 contract. Confirm the transaction in MetaMask.</li>
+          <li><b>Progress:</b> Your highest minted level is saved locally, letting you resume from the next rank.</li>
+        </ol>
+        <div class="btnrow" style="justify-content:flex-end">
+          <button id="closeHow">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lore modal -->
+    <div class="modal" id="loreModal" aria-modal="true" role="dialog">
+      <div class="card">
+        <h2 style="margin-top:0">Lore of the Gaze</h2>
+        <p id="loreText">Generating a new piece of lore...</p>
+        <div class="btnrow" style="justify-content:flex-end">
+          <button class="accent" id="downloadLore">Download Card</button>
+          <button class="accent" id="shareLore">Share Card</button>
+          <button id="closeLore">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div class="modal" id="leader">
+      <div class="modal-content">
+        <span class="close" id="closeLeader">&times;</span>
+        <h3>🏆 Global Leaderboard</h3>
+        <table id="leaderTable">
+          <thead><tr><th>Player</th><th>Score</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="font-size:.8rem; color:var(--muted); margin-top:.5rem">
+          Scores are saved only on this device (no server required).
+        </div>
+      </div>
+    </div>
+
+
+  <!-- Ethers v5 -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <script>
+    if (window.ethers) {
+      console.log("ethers version:", ethers.version); // should show 5.7.x
+    }
+  </script>
+
+  <script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+  const SUPABASE_URL = "https://kpqdyiquvljzctlmfflv.supabase.co";    // 🔑 from Supabase
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwcWR5aXF1dmxqemN0bG1mZmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMzkxNzksImV4cCI6MjA3MTgxNTE3OX0.EEY3PouPNkStSar_uFiSAh5B75gqXBVSm4vZHPkgVyw";               // 🔑 from API settings
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  /*************************************************
+   * GAZE BREAKER 👁️ — pure Canvas shmup
+   *************************************************/
+  const RANKS = [
+    'Inquire 👁️','Wanderer 👁️','Traveler 👁️','Disciple 👁️',
+    'Enchanter 👁️','Illuminated 👁️','Conscious 👁️','Flamebearer 👁️'
+  ];
+
+  const MINION_COUNTS = [300, 400, 500, 600, 700, 800, 900, 1000];
+  const BOSS_COLORS = ['#aaaaaa','#4a90e2','#f5a623','#9013fe','#d0021b','#00ff00','#ffffff','#ff4d5a'];
+
+  // 🎵 Audio Manager
+  const AudioManager = {
+    sounds: {
+      shoot: new Audio("audio/shoot.wav"),
+      hit: new Audio("audio/hit.wav"),
+      death: new Audio("audio/death.mp3"),
+      life: new Audio("audio/life.wav"),
+      splash: new Audio("audio/splash.mp3"),
+      ingame: new Audio("audio/ingame.mp3"),
+      boss: new Audio("audio/boss.mp3"),
+      win: new Audio("audio/win.mp3"),
+      gameover: new Audio("audio/gameover.wav"),
+      bosslaugh: new Audio("audio/bosslaugh.mp3"),
+    },
+    muted: false,
+    volume: 0.5, // default 50%
+  
+    play(name, loop=false) {
+      if (this.muted) return;
+      const sound = this.sounds[name];
+      if (!sound) return;
+      sound.loop = loop;
+      sound.volume = this.volume;
+      sound.currentTime = 0; // restart if already playing
+      sound.play().catch(()=>{}); // avoid DOM errors
+    },
+
+    stop(name) {
+      const sound = this.sounds[name];
+      if (sound) {
+        sound.pause();
+        sound.currentTime = 0;
+      }
+    },
+
+    stopAll() {
+      for (let key in this.sounds) {
+        this.stop(key);
+      }
+    },
+
+    setVolume(v) {
+      this.volume = v;
+      for (let key in this.sounds) {
+        this.sounds[key].volume = v;
+      }
+    },
+
+    toggleMute() {
+      this.muted = !this.muted;
+      if (this.muted) this.stopAll();
+    }
+  };
+
+
+  // --- Web3 config ---
+  const INTUITION_CHAIN = {
+    chainIdHex: '0x14AC',
+    chainId: 5312,
+    chainName: 'Intuition Epoch Testnet',
+    nativeCurrency: { name: 'tTRUST', symbol: 'tTRUST', decimals: 18 },
+    rpcUrls: ['https://testnet.rpc.intuition.systems/http'],
+    blockExplorerUrls: ['https://testnet.explorer.intuition.systems/']
+  };
+
+  const NFT_ABI = [
+    'function mintLevel(address to, uint256 level) external',
+    'function tokenURI(uint256 tokenId) view returns (string)'
+  ];
+  const NFT_ADDRESS = '0xC7863bAA5AB1512f437c7598ec430a1Affa8554b';
+
+  // Wallet state
+  let provider, signer, userAddress = null;
+  const $walletShort = document.getElementById('walletShort');
+
+  async function connectWallet() {
+  const connectBtnSplash = document.getElementById('connect');   // splash connect
+  const connectBtnHud = document.getElementById('btnConnect');   // hud connect
+  const walletEl = document.getElementById('walletShort');
+
+  // lock UI so user can't double-click
+  if (connectBtnSplash) connectBtnSplash.disabled = true;
+  if (connectBtnHud) connectBtnHud.disabled = true;
+
+  try {
+    if (!window.ethereum) {
+      alert('MetaMask (or another injected wallet) not found. Use a wallet-enabled browser or install MetaMask.');
+      return;
+    }
+
+    console.log('Requesting accounts from wallet...');
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!accounts || accounts.length === 0) throw new Error('No accounts returned by wallet.');
+
+    userAddress = accounts[0];
+
+    // ethers v5 provider
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+
+    // update UI safely
+    if (walletEl) {
+      walletEl.textContent = `${userAddress.slice(0,6)}…${userAddress.slice(-4)}`;
+      walletEl.title = userAddress;
+    }
+
+    // get current network
+    const net = await provider.getNetwork();
+    console.log('Connected wallet address:', userAddress, 'chainId:', net.chainId);
+
+    // 🔁 Ensure Intuition Testnet (5312)
+    if (INTUITION_CHAIN.chainId && net.chainId !== INTUITION_CHAIN.chainId) {
+      try {
+        console.log('Attempting to switch network to Intuition Testnet...');
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: INTUITION_CHAIN.chainIdHex }]
+        });
+        console.log('Network switched to Intuition Testnet.');
+      } catch (switchErr) {
+        console.warn('Network switch failed:', switchErr);
+
+        if (switchErr?.code === 4902 || (switchErr?.message || '').includes('Unrecognized chain ID')) {
+          try {
+            console.log('Attempting to add Intuition Testnet to wallet...');
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [INTUITION_CHAIN]
+            });
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: INTUITION_CHAIN.chainIdHex }]
+            });
+            console.log('Network added and switched successfully.');
+          } catch (addErr) {
+            console.error('Failed to add/switch to Intuition Testnet:', addErr);
+            alert('Failed to add/switch to Intuition Testnet. Please add the network manually in your wallet (Chain ID 5312).');
+          }
+        } else if (switchErr?.code === 4001) {
+          alert('Please approve the network switch in your wallet to use the Intuition Testnet.');
+          return;
+        } else {
+          alert('Failed to switch network. Please ensure the Intuition Testnet is added in your wallet.');
+        }
+      }
+    }
+
+  } catch (err) {
+    console.error('Wallet connection failed:', err);
+    alert('Wallet connection failed: ' + (err?.message || err));
+  } finally {
+    if (connectBtnSplash) connectBtnSplash.disabled = false;
+    if (connectBtnHud) connectBtnHud.disabled = false;
+  }
+}
+
+  function saveProgress(level) {
+    localStorage.setItem('gb.highestMintedLevel', level);
+    updateProgressText();
+  }
+
+  async function mintSoulBadge(level) {
+    if (!signer) { alert('Please connect your wallet first.'); return; }
+    try {
+      const nft = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+      const tx = await nft.mintLevel(userAddress, level);
+      showMintHint('Waiting for confirmation…');
+      await tx.wait();
+      showMintHint('✅ Minted! Check explorer.');
+      saveProgress(level);
+    } catch (err) {
+      showMintHint('❌ Mint failed: '+(err?.shortMessage || err?.message || err));
+    }
+  }
+  function showMintHint(text) {
+    const el = document.getElementById('mintHint');
+    el.textContent = text;
+    el.style.display='block';
+  }
+
+  // --- Canvas & responsive ---
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  // Track scaled width/height
+  let W = 0, H = 0;
+  // Handle Retina / high-DPI screens, cap at 2x for performance
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize() {
+    const w = window.innerWidth;   // browser window width
+    const h = window.innerHeight;  // browser window height
+    let aspect;         // ✅ widescreen aspect ratio
+
+    if (h > w) {
+      // 📱 Portrait mode → use 9:16
+      aspect = 9/16;
+    } else {
+      // 💻 Landscape mode → use 16:9
+      aspect = 16/9;
+    }
+
+    if (w / h > aspect) {
+      // Window too wide → limit by height
+      H = h;
+      W = h * aspect;
+    } else {
+      // Window too tall → limit by width
+      W = w;
+      H = w / aspect;
+    }
+
+    // ✅ Smarter zoom levels
+    let zoom = 1.0;
+    if (w < 480) zoom = 1.15;   // small phones → zoom a bit 
+    else if (w < 768) zoom = 1.1;    // medium phones → slight zoom
+
+    // Desired size after zoom
+    let targetW = W * zoom;
+    let targetH = H * zoom;
+
+    // ✅ Cap so canvas never exceeds viewport
+    if (targetW > w) targetW = w;
+    if (targetH > h) targetH = h;
+
+    // Scale canvas with CSS (visible size on screen)
+    canvas.style.width = `${targetW}px`;
+    canvas.style.height = `${targetH}px`;
+
+    // Internal resolution (for sharp rendering)
+    canvas.width = Math.floor(targetW * DPR);
+    canvas.height = Math.floor(targetH * DPR);
+
+    // Reset any old transform, then scale for DPR
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  // Call once and whenever window resizes
+  addEventListener('resize', resize, { passive: true });
+  resize();
+
+  // --- Input ---
+  const input = { x: W/2, y: H*0.8, down:false };
+  canvas.addEventListener('pointerdown', e=>{
+    input.down=true;
+    const rect = canvas.getBoundingClientRect();
+    input.x = (e.clientX - rect.left) * (W/rect.width);
+    input.y = (e.clientY - rect.top) * (H/rect.height);
+  });
+  addEventListener('pointerup', ()=> input.down=false);
+  addEventListener('pointermove', e=>{
+    if (input.down) {
+      const rect = canvas.getBoundingClientRect();
+      input.x = (e.clientX - rect.left) * (W/rect.width);
+      input.y = (e.clientY - rect.top) * (H/rect.height);
+    }
+  });
+  addEventListener('keydown', e=>{
+    if (e.key==='ArrowLeft') input.x-=24;
+    if (e.key==='ArrowRight') input.x+=24;
+    if (e.key==='ArrowUp') input.y-=24;
+    if (e.key==='ArrowDown') input.y+=24;
+  });
+
+  // --- Game state ---
+  const state = {
+    running: false,
+    paused: false,
+    gameState: 'LOADING',
+    level: 1,
+    score: 0,
+    ammoMax: 300,
+    ammo: 300,
+    fireDelay: 100,
+    nextFire: 0,
+    lastTime: 0,
+    minions: [],
+    bullets: [],
+    eBullets: [],
+    swords: [],
+    shields: [],             // NEW: shield drops
+    boss: null,
+    bossHp: 0,
+    bossHpMax: 0,
+    damageSinceDrop: 0,
+    movementPattern: null,
+    lives: 2                 // NEW: two lives
+  };
+
+  const hud = {
+    score: document.getElementById('score'),
+    level: document.getElementById('level'),
+    rank: document.getElementById('rankLabel'),
+    ammoBar: document.getElementById('ammoBar'),
+    ammoText: document.getElementById('ammoText'),
+    bossBar: document.getElementById('bossBar'),
+    bossHp: document.getElementById('bossHp'),
+    shieldPill: document.getElementById('shieldPill'),
+    shieldTime: document.getElementById('shieldTime'),
+    livesText: document.getElementById('livesText')
+  };
+
+  // Utils
+  const rand = (a,b)=> a + Math.random()*(b-a);
+  const clamp = (v,a,b)=> Math.max(a, Math.min(b,v));
+  const now = ()=> performance.now();
+
+  // Player
+  const player = { x: W/2, y: H*0.8, r:14, speed:0.22, shieldUntil:0, invUntil:0 }; // NEW fields
+
+  // Movement patterns
+  const MOVEMENT_PATTERNS = [
+    (m, dt) => { m.y += m.spiralRate * dt * 0.15; m.spiralAngle += m.spiralRate * dt * 0.005; m.x = W/2 + Math.cos(m.spiralAngle) * m.spiralRadius; },
+    (m, dt) => { m.y += m.spiralRate * dt * 0.15; m.spiralAngle += m.spiralRate * dt * 0.01; m.x = W/2 + Math.cos(m.spiralAngle) * 100; },
+    (m, dt) => { m.y += m.spiralRate * dt * 0.15; m.x = m.startX + Math.sin(m.y * 0.05) * 80; },
+    (m, dt) => { m.y += m.spiralRate * dt * 0.15; m.x = m.startX + Math.cos(m.y * 0.03 + m.phase) * 60; },
+    (m, dt) => { m.y += m.spiralRate * dt * 0.15; m.x = m.startX + (m.y % 100 < 50 ? 50 : -50); },
+    (m, dt) => { m.y += m.spiralRate * dt * 0.15; m.x += Math.sin(m.y * 0.02) * 0.5 + rand(-0.5, 0.5); m.x = clamp(m.x, 20, W-20); }
+  ];
+
+  function levelParams(lv) {
+    return {
+      minionCount: MINION_COUNTS[lv-1] || 100 + (lv-1)*150,
+      minionSpeed: 0.30 + lv*0.03,
+      minionBulletSpeed: 0.8,
+      bossHp: 300 + (lv-1)*200,
+      bossFireRate: Math.max(1200 - lv * 100, 400),
+      bossBulletSpeed: 1.2 + lv*0.25
+    };
+  }
+  const rankName = lv => RANKS[lv-1] || 'Unknown';
+
+  // Init a level
+  function initLevel() {
+    state.gameState = 'MINION_WAVE';
+    state.minions.length=0;
+    state.eBullets.length=0;
+    state.swords.length=0;
+    state.shields.length=0; // NEW
+    state.bullets.length=0;
+    minionKillCount=0;
+    state.ammo = state.ammoMax;
+    updateAmmo();
+    hud.level.textContent = state.level;
+    hud.rank.textContent = '('+rankName(state.level)+')';
+    updateLives();
+    const p = levelParams(state.level);
+    const minionCount = p.minionCount;
+    const startRadius = W * 0.4;
+    const initialAngle = rand(0, Math.PI * 2);
+    state.movementPattern = MOVEMENT_PATTERNS[Math.floor(Math.random() * MOVEMENT_PATTERNS.length)];
+    for (let i = 0; i < minionCount; i++) {
+      const radius = startRadius * (1 - (i / minionCount));
+      const angle = initialAngle + (i / 10) * Math.PI * 2;
+      const y = -i * 10;
+      state.minions.push({
+        x: W/2 + Math.cos(angle) * radius,
+        y,
+        startX: W/2 + Math.cos(angle) * radius,
+        r: 12,
+        spiralAngle: angle,
+        spiralRadius: radius,
+        spiralRate: p.minionSpeed,
+        phase: rand(0, Math.PI * 2)
+      });
+    }
+    messageCenter(`Rank ${rankName(state.level)} — eliminate the 👁️ minions!`);
+    try {
+      console.log("Starting minion wave, playing ingame.mp3");
+      AudioManager.stopAll();
+      if (bossLaughInterval) {
+        clearInterval(bossLaughInterval);
+        bossLaughInterval = null;
+      }
+      AudioManager.play('ingame', true);
+    } catch (e) {
+      console.error("Audio error in initLevel:", e);
+    }
+  }
+
+  // Boss
+  function startBoss() {
+    state.gameState = 'BOSS_FIGHT';
+    state.bullets.length=0;
+    state.eBullets.length=0;
+    state.swords.length=0;
+    state.shields.length=0; // NEW
+    state.damageSinceDrop=0;
+    const p = levelParams(state.level);
+    state.bossHpMax = p.bossHp;
+    state.bossHp = p.bossHp;
+    state.boss = { x: W/2, y: 120, r: 40, t:0, pattern: state.level };
+    updateBossHp();
+    messageCenter(`Rank ${rankName(state.level)} Boss Appears 👁️`, 2000);
+    try {
+      console.log("Starting boss sounds");
+      AudioManager.stopAll();
+      if (bossLaughInterval) clearInterval(bossLaughInterval);
+      AudioManager.play('boss', true);
+      AudioManager.play('bosslaugh');
+      bossLaughInterval = setInterval(() => AudioManager.play('bosslaugh'), 5000);
+    } catch (e) {
+      console.error("Audio error in startboss:", e);
+    }
+  }
+
+  function winLevel() {
+    state.gameState = 'LEVEL_WIN';
+    state.paused = true;
+    const next = state.level+1;
+    const msg = (next<=8)
+      ? `${rankName(state.level)} Completed! Advancing to ${rankName(next)}…`
+      : `🔥 ${rankName(state.level)} Achieved! YOU WIN!`;
+    const cen = document.getElementById('center');
+    cen.classList.add('show');
+    document.getElementById('bigMessage').textContent = msg;
+    document.getElementById('mintRow').style.display='block';
+    document.getElementById('btnMint').onclick = ()=> mintSoulBadge(state.level);
+    pushScore();
+    try {
+      console.log("Stopping all sounds for win");
+      AudioManager.stopAll();
+      if (bossLaughInterval) {
+        clearInterval(bossLaughInterval);
+        bossLaughInterval = null;
+      }
+      AudioManager.play('win');
+   }  catch (e) {
+      console.error("Audio error in winlevel:", e);
+   }
+    if (next<=8) {
+      countdownTo(()=>{ state.level=next; initLevel(); state.paused=false; }, 5, msg);
+    } else {
+      countdownTo(()=>{ state.running=false; showSplash(); }, 8, msg);
+    }
+  }
+
+  // Center messages
+  function messageCenter(text, duration = 1800) {
+    const cen = document.getElementById('center');
+    cen.classList.add('show');
+    document.getElementById('bigMessage').textContent = text;
+    document.getElementById('countdown').textContent = '';
+    document.getElementById('mintRow').style.display='none';
+    setTimeout(()=> cen.classList.remove('show'), duration);
+  }
+  function countdownTo(cb, secs, msg) {
+    const cen = document.getElementById('center');
+    cen.classList.add('show');
+    if (msg) document.getElementById('bigMessage').textContent = msg;
+    let t=secs;
+    const cd = document.getElementById('countdown');
+    cd.textContent = `Next in ${t}s`;
+    const int = setInterval(()=>{
+      t--;
+      if (t>=0) cd.textContent = `Next in ${t}s`;
+      if (t<0) { clearInterval(int); cen.classList.remove('show'); cb(); }
+    }, 1000);
+  }
+
+  // HUD updates
+  function updateAmmo() {
+    hud.ammoText.textContent = `${state.ammo}/${state.ammoMax}`;
+    hud.ammoBar.style.width = `${100*state.ammo/state.ammoMax}%`;
+  }
+  function updateBossHp() {
+    const max = state.bossHpMax||0;
+    const cur = Math.max(0, Math.floor(state.bossHp||0));
+    hud.bossHp.textContent = `${cur}/${max}`;
+    const pct = max>0 ? clamp(cur/max,0,1) : 0;
+    hud.bossBar.style.width = `${100*pct}%`;
+  }
+  function updateLives() { // NEW
+    hud.livesText.textContent = state.lives;
+  }
+  function updateShieldHud() { // NEW
+    const msLeft = player.shieldUntil - now();
+    if (msLeft > 0) {
+      hud.shieldPill.style.display = 'flex';
+      hud.shieldTime.textContent = Math.ceil(msLeft/1000)+'s';
+    } else {
+      hud.shieldPill.style.display = 'none';
+    }
+  }
+
+  // Shooting (auto)
+  function tryFire(t) {
+    if (t < state.nextFire) return;
+    if (state.ammo<=0) return;
+    state.bullets.push({ x:player.x, y:player.y-18, vy:-6, r:3 });
+    AudioManager.play('shoot');
+    state.nextFire = t + state.fireDelay;
+    state.ammo--;
+    updateAmmo();
+  }
+
+  // Drops
+  function spawnSword(x, y) { state.swords.push({ x, y, r:10, vy:1.6 }); }
+  function spawnShield(x, y) { state.shields.push({ x, y, r:12, vy:1.4 }); } // NEW
+
+  // Boss patterns
+  function bossShoot(t) {
+    const p = levelParams(state.level);
+    const b = state.boss; if (!b) return;
+    if (!b.next) b.next = t + p.bossFireRate;
+    if (t < b.next) return;
+    b.next = t + p.bossFireRate;
+    const speed = p.bossBulletSpeed;
+    const shots = [];
+    switch(state.level) {
+      case 1: shots.push({vx:0,vy: speed}); break;
+      case 2: shots.push({vx:-0.3,vy:speed},{vx:0.3,vy:speed}); break;
+      case 3: shots.push({vx:-0.4,vy:speed},{vx:0,vy:speed},{vx:0.4,vy:speed}); break;
+      case 4: for(let i=0;i<4;i++) shots.push({vx:(i-1.5)*0.25,vy:speed*1.1}); break;
+      case 5: for(let a=-0.6;a<=0.6;a+=0.3) shots.push({vx:a,vy:speed}); shots.push({vx:rand(-0.6,0.6),vy:speed*1.2}); break;
+      case 6: for(let i=-3;i<=2;i++) shots.push({vx:i*0.22,vy:speed*1.1}); break;
+      case 7: for(let a=0;a<2*Math.PI;a+=Math.PI/5) shots.push({vx:Math.cos(a)*0.7, vy:Math.sin(a)*0.7+speed}); break;
+      case 8: for(let i=0;i<14;i++){ const ang = i*(Math.PI*2/14); shots.push({vx:Math.cos(ang)*0.9, vy:Math.sin(ang)*0.9+speed*0.9}); } break;
+    }
+    shots.forEach(s=> state.eBullets.push({ x:b.x, y:b.y+10, vx:s.vx, vy:s.vy, r:4 }));
+  }
+
+  // Collision
+  function hit(a, b, dist) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return (dx*dx + dy*dy) <= (dist*dist);
+  }
+  let minionKillCount = 0;
+
+  // NEW: centralised player hit handler (lives + shield + i-frames)
+  function onPlayerHit(source='') {
+    const t = now();
+    if (t < player.invUntil) return;                // invincible window
+    if (t < player.shieldUntil) return;             // shield active
+    state.lives -= 1;
+    updateLives();
+    if (state.lives > 0) {
+      AudioManager.play('life');
+      player.invUntil = t + 1500;                   // 1.5s i-frames
+      messageCenter(`You were hit${source?` by ${source}`:''}! ${state.lives} ${state.lives===1?'life':'lives'} left.`, 900);
+      // small knockback vibe
+    } else {
+      AudioManager.play('death');
+      AudioManager.sounds.death.onended = () => AudioManager.play('gameover');
+      gameOver();
+    }
+  }
+
+  // Main loop
+  function loop(t) {
+    if (!state.running) return;
+    const dt = Math.min(32, t - (state.lastTime||t));
+    state.lastTime = t;
+
+    // Draw BG
+    ctx.clearRect(0,0,W,H);
+    drawBackdrop(t);
+    if (state.gameState === 'BOSS_FIGHT') { drawVignette(); }
+
+    if (state.paused) {
+      drawPlayer();
+      drawBullets();
+      drawEnemyBullets();
+      drawSwords();
+      drawShields();           // NEW
+      updateShieldHud();       // NEW
+      requestAnimationFrame(loop);
+      return;
+    }
+
+    // Move player
+    player.x += (input.x - player.x) * 0.12;
+    player.x = clamp(player.x, 20, W-20);
+    player.y = clamp(H*0.8, 20, H-20);
+
+    // Autofire
+    if (input.down) tryFire(t);
+
+    // Player bullets
+    for (let i=state.bullets.length-1; i>=0; i--) {
+      const b = state.bullets[i];
+      b.y += b.vy;
+      if (b.y < -10) state.bullets.splice(i,1);
+    }
+
+    // Game logic
+    if (state.gameState === 'MINION_WAVE') {
+      // Move minions and remove if they leave screen
+      for (let i = state.minions.length - 1; i >= 0; i--) {
+        const m = state.minions[i];
+        state.movementPattern(m, dt);
+
+      if (m.y > H + 50 || m.x < -50 || m.x > W + 50) {
+        state.minions.splice(i, 1);
+        continue;
+      }
+    }
+
+      // Bullet hits minions
+      for (let i=state.minions.length-1; i>=0; i--) {
+        const m = state.minions[i];
+        for (let j=state.bullets.length-1; j>=0; j--) {
+          const b = state.bullets[j];
+          if (hit(m,b,m.r+4)) {
+            state.minions.splice(i,1);
+            state.bullets.splice(j,1);
+            state.score += 10; hud.score.textContent = state.score;
+            AudioManager.play('hit');
+            minionKillCount++;
+            if (minionKillCount % 10 === 0) spawnSword(m.x, m.y);
+            // occasional shield drop (rarer than swords; scales a bit with level)
+            const shieldChance = 0.03 + (state.level-1)*0.005; // ~3% base
+            if (Math.random() < shieldChance) spawnShield(m.x, m.y);
+            break;
+          }
+        }
+        // NEW: minion collision with player
+        if (i < state.minions.length && hit(m, player, m.r + player.r)) {
+          onPlayerHit('a minion');
+          // remove minion on collision to prevent immediate double hit
+          state.minions.splice(i,1);
+        }
+      }
+      if (state.minions.length === 0) startBoss();
+
+    } else if (state.gameState === 'BOSS_FIGHT') {
+      const b = state.boss;
+      if (b) {
+        b.t += dt;
+        b.x = W/2 + Math.sin(b.t * 0.001) * (W * 0.4 - b.r);
+        b.y = 120 + Math.sin(b.t*0.0012+0.5)*8;
+        bossShoot(t);
+        // Player bullets damage boss
+        for (let j=state.bullets.length-1; j>=0; j--) {
+          const s = state.bullets[j];
+          if (hit(s,b,b.r+8)) {
+            state.bullets.splice(j,1);
+            state.bossHp -= 10;
+            AudioManager.play('hit');
+            state.damageSinceDrop += 10;
+            updateBossHp();
+            if (state.damageSinceDrop >= 200) {
+              spawnSword(b.x+rand(-30,30), b.y+30);
+              // chance to also drop a shield on boss damage
+              spawnShield(b.x+rand(-30,30), b.y+30);
+              state.damageSinceDrop = 0;
+            }
+            if (state.bossHp <= 0) { state.boss = null; winLevel(); }
+          }
+        }
+        // NEW: boss body collision also hurts
+        if (hit(b, player, b.r + player.r)) onPlayerHit('the boss');
+      }
+    }
+
+    // Enemy bullets
+    for (let i=state.eBullets.length-1; i>=0; i--) {
+      const e = state.eBullets[i];
+      e.x += e.vx; e.y += e.vy;
+      if (e.y > H+12 || e.x < -12 || e.x > W+12) { state.eBullets.splice(i,1); continue; }
+      // NEW: bullet collision uses onPlayerHit()
+      if (hit(e, player, player.r+6)) {
+        state.eBullets.splice(i,1);
+        onPlayerHit('a projectile');
+      }
+    }
+
+    // Swords (ammo)
+    for (let i=state.swords.length-1; i>=0; i--) {
+      const s = state.swords[i];
+      s.y += s.vy;
+      if (s.y > H+20) { state.swords.splice(i,1); continue; }
+      if (hit(s,player,16)) {
+        state.ammo = state.ammoMax;
+        updateAmmo();
+        state.swords.splice(i,1);
+      }
+    }
+
+    // NEW: Shields (🛡️)
+    for (let i=state.shields.length-1; i>=0; i--) {
+      const s = state.shields[i];
+      s.y += s.vy;
+      if (s.y > H+20) { state.shields.splice(i,1); continue; }
+      if (hit(s,player,18)) {
+        player.shieldUntil = now() + 15000; // 15s
+        state.shields.splice(i,1);
+        messageCenter('🛡️ Shield activated: 15s');
+      }
+    }
+
+    // Draw
+    drawPlayer();
+    if (state.gameState === 'MINION_WAVE') drawMinions();
+    if (state.gameState === 'BOSS_FIGHT' || state.gameState === 'LEVEL_WIN') drawBoss();
+    drawBullets();
+    drawEnemyBullets();
+    drawSwords();
+    drawShields();             // NEW
+    updateShieldHud();         // NEW
+
+    requestAnimationFrame(loop);
+  }
+
+  function gameOver() {
+    state.running = false;
+    pushScore();
+    const highestMintedLevel = parseInt(localStorage.getItem('gb.highestMintedLevel') || 0);
+    const startLevel = highestMintedLevel > 0 ? highestMintedLevel + 1 : 1;
+    const msg = highestMintedLevel > 0
+      ? `💀 You died. Resuming from Rank ${rankName(startLevel)}…`
+      : `💀 You were consumed by the gaze…`;
+    messageCenter(msg);
+    setTimeout(()=>{ state.level = startLevel; showSplash(); }, 1500);
+    AudioManager.stopAll();
+    if (bossLaughInterval) clearInterval(bossLaughInterval);
+  }
+
+  // Rendering
+  function drawBackdrop(t) {
+    ctx.save();
+    ctx.fillStyle = '#0a0f17';
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=0.25;
+    for(let i=0;i<80;i++) {
+      const y = ((t*0.02 + i*80) % (H+80)) - 40;
+      ctx.fillStyle = i%7 ? '#0d1623' : '#15223a';
+      ctx.fillRect((i*97)%W, y, 2, 10);
+    }
+    ctx.globalAlpha=1;
+    ctx.fillStyle = '#0f1522';
+    for(let i=0;i<3;i++) {
+      const cx = (i+1)*W/4 + Math.sin(t*0.0007 + i)*40 - W/8;
+      const cy = H-40;
+      ctx.beginPath();
+      ctx.moveTo(cx-60,cy);
+      ctx.quadraticCurveTo(cx, cy-180, cx+60, cy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx, cy-120, 28, 38, 0, 0, Math.PI*2);
+      ctx.fillStyle='#0a0f19';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawVignette() {
+    ctx.save();
+    const gradient = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.2, W/2, H/2, Math.min(W,H)*0.5);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+  function drawPlayer() {
+    const {x,y} = player;
+    ctx.save();
+    // subtle flicker when invincible
+    if (now() < player.invUntil && Math.floor(now()/100)%2===0) { ctx.globalAlpha = 0.5; }
+    ctx.fillStyle = '#cde4ff';
+    ctx.beginPath(); ctx.moveTo(x, y-16); ctx.lineTo(x-10, y+12); ctx.lineTo(x+10, y+12); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = (now() < player.shieldUntil) ? '#86efac' : '#6bb3ff'; // green outline when shielded
+    ctx.lineWidth=2; ctx.stroke();
+    ctx.font='14px system-ui'; ctx.textAlign='center'; ctx.fillStyle='#0b1524'; ctx.fillText('👁️', x, y+4);
+    // halo when shield is active
+    if (now() < player.shieldUntil) {
+      ctx.beginPath(); ctx.arc(x, y, player.r+8, 0, Math.PI*2);
+      ctx.strokeStyle = '#86efac'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawMinions() {
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='20px serif';
+    for (const m of state.minions) { ctx.globalAlpha=0.9; ctx.fillText('👁️', m.x, m.y); }
+    ctx.restore();
+  }
+  function drawBoss() {
+    if (!state.boss) return;
+    const b = state.boss;
+    const bossColor = BOSS_COLORS[state.level - 1] || '#ffffff';
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(b.x - 70, b.y + 60); ctx.quadraticCurveTo(b.x, b.y - 40, b.x + 70, b.y + 60); ctx.closePath();
+    ctx.fillStyle = bossColor + '40'; ctx.fill();
+    ctx.strokeStyle = bossColor + '60'; ctx.lineWidth = 2; ctx.globalAlpha = 0.6; ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.font = '48px serif'; ctx.textAlign = 'center'; ctx.fillStyle = bossColor; ctx.fillText('👁️', b.x, b.y);
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 18, 0, Math.PI * 2); ctx.strokeStyle = bossColor + '90'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+  }
+  function drawBullets() {
+    ctx.save(); ctx.fillStyle='#9fd';
+    for(const b of state.bullets) { ctx.beginPath(); ctx.arc(b.x,b.y,3,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+  function drawEnemyBullets() {
+    ctx.save(); ctx.fillStyle='#ff7890';
+    for(const e of state.eBullets) { ctx.beginPath(); ctx.arc(e.x,e.y,4,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+  }
+  function drawSwords() {
+    ctx.save(); ctx.font='18px serif'; ctx.textAlign='center';
+    for(const s of state.swords) { ctx.fillText('⚔️', s.x, s.y); }
+    ctx.restore();
+  }
+  function drawShields() { // NEW
+    ctx.save(); ctx.font='20px serif'; ctx.textAlign='center';
+    for(const s of state.shields) { ctx.fillText('🛡️', s.x, s.y); }
+    ctx.restore();
+  }
+
+  // Leaderboard (local)
+  async function pushScore() {
+    try {
+      const wallet = userAddress ? userAddress.slice(0,6)+'…'+userAddress.slice(-4) : 'Guest';
+      const { error } = await supabase.from("scores").insert({
+        wallet,
+        level: state.level,
+        rank: rankName(state.level),
+        score: state.score
+      });
+      if (error) console.error("Error saving score:", error);
+      renderLeaderboard();
+    } catch(e) {
+      console.error("Push score failed:", e);
+    }
+  }
+
+  // fetch top 20 scores from last 24h
+  async function renderLeaderboard() {
+    const since = new Date(Date.now() - 24*60*60*1000).toISOString();
+    const { data, error } = await supabase
+      .from("scores")
+      .select("*")
+      .gte("created_at", since)
+      .order("score", { ascending: false })
+      .limit(20);
+    if (error) { console.error(error); return; }
+
+    const tbody = document.querySelector('#leaderTable tbody');
+    tbody.innerHTML='';
+    data.forEach((r,i)=> {
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${i+1}. ${r.wallet} | LV ${r.level} ${r.rank}</td><td>${r.score}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // UI wiring
+  const splash = document.getElementById('splash');
+  const startButton = document.getElementById('start');
+  const progressText = document.getElementById('progressText');
+
+  function updateProgressText() {
+    const highestLevel = parseInt(localStorage.getItem('gb.highestMintedLevel') || 0);
+    const text = highestLevel > 0
+      ? `You have reached Rank ${RANKS[highestLevel-1]}! Your next challenge is to become a ${RANKS[highestLevel]}.`
+      : 'You are an Inquirer. Break the Gaze and start your journey.';
+    progressText.textContent = text;
+  }
+
+  function startGame() {
+    splash.style.display='none';
+    const highestLevel = parseInt(localStorage.getItem('gb.highestMintedLevel') || 0);
+    state.level = highestLevel > 0 ? highestLevel + 1 : 1;
+    state.running=true;
+    state.paused=false;
+    state.score=0;
+    state.ammo=state.ammoMax;
+    state.bullets.length=0;
+    state.eBullets.length=0;
+    state.swords.length=0;
+    state.shields.length=0; // NEW
+    state.boss=null;
+    state.lives=2;          // NEW: reset lives
+    player.shieldUntil = 0; // NEW
+    player.invUntil = 0;    // NEW
+    updateAmmo();
+    updateBossHp();
+    updateLives();          // NEW
+    document.getElementById('hud').style.display='flex';
+    initLevel();
+    state.lastTime=0;
+    requestAnimationFrame(loop);
+    AudioManager.stopAll();
+    AudioManager.play('ingame', true);
+  }
+
+  // Bind UI events
+  startButton.onclick = startGame;
+  document.getElementById('connect').onclick = connectWallet;
+  document.getElementById('btnConnect').onclick = connectWallet;
+  document.getElementById('how').onclick = ()=> document.getElementById('howModal').classList.add('show');
+  document.getElementById('btnHow').onclick = ()=> document.getElementById('howModal').classList.add('show');
+  document.getElementById('closeHow').onclick = ()=> document.getElementById('howModal').classList.remove('show');
+  document.getElementById('btnLeaderboard').onclick = () => {
+    const leaderModal = document.getElementById('leader');
+    leaderModal.style.display = leaderModal.style.display === 'flex' ? 'none' : 'flex';
+  };
+  document.getElementById('leaderboard').onclick = () => {
+    document.getElementById('leader').style.display = 'flex';
+  };
+  document.getElementById('closeLeader').onclick = () => {
+    document.getElementById('leader').style.display = 'none';
+  };
+  document.getElementById('downloadLore').onclick = () => {
+    const loreText = document.getElementById('loreText').textContent;
+    downloadLoreCard(loreText);
+  };
+  document.getElementById('shareLore').onclick = () => {
+    const loreText = document.getElementById('loreText').textContent;
+    shareLoreCard(loreText);
+  };
+  document.getElementById('lore').onclick = generateLore;
+  document.getElementById('closeLore').onclick = ()=> document.getElementById('loreModal').classList.remove('show');
+  document.getElementById('btnMute').onclick = () => {
+    AudioManager.toggleMute();
+    document.getElementById('btnMute').textContent = AudioManager.muted ? '🔊' : '🔇';
+  };
+
+  async function generateLore() {
+    const loreModal = document.getElementById('loreModal');
+    const loreText = document.getElementById('loreText');
+    const loreButton = document.getElementById('lore');
+    console.log("Generate Lore clicked"); // Debug
+    if (!loreModal || !loreText || !loreButton) {
+      console.error("Lore elements missing:", { loreModal, loreText, loreButton });
+      return;
+    }
+    loreModal.classList.add('show');
+    loreButton.disabled = true;
+    loreButton.textContent = "Generating...";
+    loreText.textContent = "Generating a new piece of lore...";
+    const prompt = "Write a 3-4 sentence sci-fi lore snippet about a secret organization called 'The Institution' that controls minds through 'The Gaze.' The tone should be eerie and mysterious. Focus on the nature of The Gaze and the struggle against it.";
+
+    try {
+      const apiKey = "AIzaSyDo5JlhoVt59TDrb4dXF5xk8n1JRw005Xk"; // NOTE: public client key; consider proxying server-side later
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (!response.ok) throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      const result = await response.json();
+      const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      loreText.textContent = text || "Failed to generate lore. Please try again.";
+    } catch (error) {
+      loreText.textContent = "An error occurred while generating lore. Please try again.";
+      console.error("Error during API call:", error);
+    } finally {
+      loreButton.disabled = false;
+      loreButton.textContent = "✨ Generate Lore";
+    }
+  }
+
+  function createLoreCard(loreText) {
+    let loreCard = document.getElementById('loreCard');
+    if (!loreCard) {
+      loreCard = document.createElement('div');
+      loreCard.id = 'loreCard';
+      document.body.appendChild(loreCard);
+    }
+    loreCard.innerHTML = `
+      <h2>Lore of the Gaze</h2>
+      <p>${loreText.replace(/\n/g, '<br>')}</p>
+      <div class="footer">Created by @i2playy | Powered by @0xIntuition</div>
+    `;
+    return loreCard;
+  }
+
+  function downloadLoreCard(loreText) {
+    const loreCard = createLoreCard(loreText);
+    loreCard.style.display = 'block';
+    html2canvas(loreCard, { backgroundColor: null }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'gaze-breaker-lore.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      loreCard.style.display = 'none';
+    }).catch(e => console.error('Error generating lore card:', e));
+  }
+
+  function shareLoreCard(loreText) {
+    const loreCard = createLoreCard(loreText);
+    loreCard.style.display = 'block';
+    html2canvas(loreCard, { backgroundColor: null }).then(canvas => {
+      canvas.toBlob(blob => {
+        const file = new File([blob], 'gaze-breaker-lore.png', { type: 'image/png' });
+        const shareData = {
+          files: [file],
+          title: 'Gaze Breaker Lore',
+          text: 'Check out my lore from Gaze Breaker! Created by @i2playy, powered by @0xIntuition.',
+          url: 'https://x.com/i2playy'
+        };
+        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+          navigator.share(shareData).catch(e => console.error('Error sharing:', e));
+        } else {
+          alert('Sharing not supported. Downloading card instead.');
+          downloadLoreCard(loreText);
+        }
+        loreCard.style.display = 'none';
+      });
+    }).catch(e => console.error('Error generating lore card:', e));
+  }
+
+  function showSplash() {
+    splash.style.display='flex';
+    document.getElementById('hud').style.display='none';
+    updateProgressText();
+    AudioManager.stopAll();
+    if (bossLaughInterval) clearInterval(bossLaughInterval);
+    AudioManager.play('splash', true);
+  }
+
+  // Initial setup
+  showSplash();
+  renderLeaderboard();
+  // Auto-refresh leaderboard every 10 seconds
+  setInterval(renderLeaderboard, 10000);
+  </script>
+</body>
+</html>
